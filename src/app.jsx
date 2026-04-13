@@ -27,6 +27,33 @@ const stripe = `linear-gradient(90deg, ${C.burgundy}, ${C.burgundy}, ${C.fig}, $
 /* ─── Google Drive Upload via Apps Script ─────────────────────────────────── */
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
+/* ─── Filters ─────────────────────────────────────────────────────────────── */
+const FILTERS = [
+  { name: "Original", css: "none" },
+  { name: "Warm",     css: "sepia(0.25) saturate(1.5) brightness(1.08)" },
+  { name: "Soft",     css: "brightness(1.12) contrast(0.82) saturate(0.85)" },
+  { name: "Bloom",    css: "brightness(1.12) contrast(0.88) saturate(1.3) hue-rotate(-8deg)" },
+  { name: "Fig",      css: "sepia(0.45) saturate(0.65) brightness(0.93) contrast(1.12)" },
+  { name: "B&W",      css: "grayscale(1)" },
+];
+
+function applyFilterToImage(dataUrl, filterCSS) {
+  if (filterCSS === "none") return Promise.resolve(dataUrl);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.filter = filterCSS;
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.src = dataUrl;
+  });
+}
+
 async function uploadToDrive(imageDataUrl, guestName) {
   const base64Data = imageDataUrl.split(",")[1];
   const timestamp = Date.now();
@@ -453,19 +480,68 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
 
 /* ─── PreviewScreen ───────────────────────────────────────────────────────── */
 function PreviewScreen({ image, onRetake, onConfirm }) {
+  const [selectedFilter, setSelectedFilter] = useState("Original");
+  const [applying, setApplying] = useState(false);
+  const filter = FILTERS.find(f => f.name === selectedFilter);
+
+  const handleConfirm = async () => {
+    setApplying(true);
+    const filtered = await applyFilterToImage(image, filter.css);
+    onConfirm(filtered);
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", flexDirection: "column" }}>
-      <img src={image} alt="Preview" style={{ flex: 1, objectFit: "contain", width: "100%", minHeight: 0 }} />
+      {/* Preview image with live CSS filter */}
+      <img
+        src={image}
+        alt="Preview"
+        style={{
+          flex: 1, objectFit: "contain", width: "100%", minHeight: 0,
+          filter: filter.css === "none" ? undefined : filter.css,
+        }}
+      />
+
+      {/* Filter selector */}
       <div style={{
-        display: "flex", gap: 16, padding: "16px 28px",
+        display: "flex", overflowX: "auto", gap: 12,
+        padding: "12px 16px", background: "#000",
+        scrollbarWidth: "none", flexShrink: 0,
+      }}>
+        {FILTERS.map(f => (
+          <div key={f.name} onClick={() => setSelectedFilter(f.name)} style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+            cursor: "pointer", flexShrink: 0,
+          }}>
+            <div style={{
+              width: 62, height: 62, borderRadius: 10, overflow: "hidden",
+              border: selectedFilter === f.name ? `2.5px solid ${C.sageLight}` : "2.5px solid transparent",
+              transition: "border-color 0.2s",
+            }}>
+              <img src={image} alt={f.name} style={{
+                width: "100%", height: "100%", objectFit: "cover",
+                filter: f.css === "none" ? undefined : f.css,
+              }} />
+            </div>
+            <span style={{
+              color: selectedFilter === f.name ? C.sageLight : "rgba(255,255,255,0.5)",
+              fontSize: 11, fontFamily: "Amiri, Georgia, serif",
+              transition: "color 0.2s",
+            }}>{f.name}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Buttons */}
+      <div style={{
+        display: "flex", gap: 16, padding: "12px 28px",
         paddingBottom: `max(28px, env(safe-area-inset-bottom))`,
-        background: "linear-gradient(to top, #000e, #000a, transparent)",
-        justifyContent: "center", flexShrink: 0
+        justifyContent: "center", flexShrink: 0,
       }}>
         <BtnSecondary onClick={onRetake} style={{ flex: 1, maxWidth: 170, color: "white", borderColor: "rgba(255,255,255,0.55)" }}>
           Retake · أعد
         </BtnSecondary>
-        <BtnPrimary onClick={onConfirm} style={{ flex: 1, maxWidth: 170 }}>
+        <BtnPrimary onClick={handleConfirm} disabled={applying} style={{ flex: 1, maxWidth: 170 }}>
           Upload · أرسل
         </BtnPrimary>
       </div>
@@ -504,14 +580,11 @@ export default function WeddingCamera() {
     setScreen("preview");
   };
 
-  const handleConfirm = () => {
-    // Immediately go back to camera — upload runs in background
+  const handleConfirm = (filteredImage) => {
     setScreen("camera");
     setImage(null);
-
     const toastId = addToast("uploading");
-
-    uploadToDrive(image, guestName)
+    uploadToDrive(filteredImage, guestName)
       .then(() => updateToast(toastId, "success"))
       .catch(e => updateToast(toastId, "error", e.message));
   };
