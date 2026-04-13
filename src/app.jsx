@@ -32,15 +32,13 @@ async function uploadToDrive(imageDataUrl, guestName) {
   const timestamp = Date.now();
   const filename = `${timestamp}-${guestName || "guest"}.jpg`;
 
-  const res = await fetch(APPS_SCRIPT_URL, {
+  await fetch(APPS_SCRIPT_URL, {
     method: "POST",
+    mode: "no-cors",
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify({ image: base64Data, filename }),
   });
 
-  if (!res.ok) throw new Error(`Server error: ${res.status}`);
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || "Upload failed");
   return true;
 }
 
