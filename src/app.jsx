@@ -29,12 +29,12 @@ const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
 /* ─── Filters ─────────────────────────────────────────────────────────────── */
 const FILTERS = [
-  { name: "Original", css: "none" },
-  { name: "Warm",     css: "sepia(0.25) saturate(1.5) brightness(1.08)" },
-  { name: "Soft",     css: "brightness(1.12) contrast(0.82) saturate(0.85)" },
-  { name: "Bloom",    css: "brightness(1.12) contrast(0.88) saturate(1.3) hue-rotate(-8deg)" },
-  { name: "Fig",      css: "sepia(0.45) saturate(0.65) brightness(0.93) contrast(1.12)" },
-  { name: "B&W",      css: "grayscale(1)" },
+  { name: "None",    value: "none" },
+  { name: "Warm",    value: "sepia(0.35) saturate(1.4) brightness(1.05) contrast(1.1)" },
+  { name: "B&W",     value: "grayscale(1) contrast(1.5)" },
+  { name: "Golden",  value: "sepia(0.5) saturate(1.8) hue-rotate(-15deg)" },
+  { name: "Vivid",   value: "brightness(0.82) contrast(1.4) saturate(1.3)" },
+  { name: "Film",     value: "sepia(0.55) saturate(0.6) contrast(1.2) brightness(0.88) hue-rotate(5deg)" },
 ];
 
 function applyFilterToImage(dataUrl, filterCSS) {
@@ -480,13 +480,13 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
 
 /* ─── PreviewScreen ───────────────────────────────────────────────────────── */
 function PreviewScreen({ image, onRetake, onConfirm }) {
-  const [selectedFilter, setSelectedFilter] = useState("Original");
+  const [selectedFilter, setSelectedFilter] = useState(FILTERS[0].name);
   const [applying, setApplying] = useState(false);
-  const filter = FILTERS.find(f => f.name === selectedFilter);
+  const filter = FILTERS.find(f => f.name === selectedFilter) ?? FILTERS[0];
 
   const handleConfirm = async () => {
     setApplying(true);
-    const filtered = await applyFilterToImage(image, filter.css);
+    const filtered = await applyFilterToImage(image, filter.value);
     onConfirm(filtered);
   };
 
@@ -498,7 +498,7 @@ function PreviewScreen({ image, onRetake, onConfirm }) {
         alt="Preview"
         style={{
           flex: 1, objectFit: "contain", width: "100%", minHeight: 0,
-          filter: filter.css === "none" ? undefined : filter.css,
+          filter: filter.value === "none" ? undefined : filter.value,
         }}
       />
 
@@ -520,7 +520,7 @@ function PreviewScreen({ image, onRetake, onConfirm }) {
             }}>
               <img src={image} alt={f.name} style={{
                 width: "100%", height: "100%", objectFit: "cover",
-                filter: f.css === "none" ? undefined : f.css,
+                filter: f.value === "none" ? undefined : f.value,
               }} />
             </div>
             <span style={{
