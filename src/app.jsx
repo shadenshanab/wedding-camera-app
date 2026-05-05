@@ -94,6 +94,7 @@ function injectGlobals() {
       @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
       @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
       @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateY(8px); } }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     `;
     document.head.appendChild(s);
   }
@@ -588,10 +589,18 @@ export default function WeddingCamera() {
   const [screen, setScreen]       = useState("welcome");
   const [guestName, setGuestName] = useState("");
   const [image, setImage]         = useState(null);
-  const [hasSession, setHasSession] = useState(false); // true after name is set once
+  const [hasSession, setHasSession] = useState(false);
   const [toasts, setToasts]       = useState([]);
+  const [ready, setReady]         = useState(false);
 
-  useEffect(() => { injectGlobals(); }, []);
+  useEffect(() => {
+    injectGlobals();
+    Promise.all(
+      Object.values(IMGS).map(
+        src => new Promise(res => { const i = new Image(); i.onload = res; i.onerror = res; i.src = src; })
+      )
+    ).then(() => setReady(true));
+  }, []);
 
   const addToast = (status, message = "") => {
     const id = ++toastCounter;
@@ -637,8 +646,17 @@ export default function WeddingCamera() {
     setScreen("camera");
   };
 
+  if (!ready) return (
+    <div style={{
+      minHeight: "100dvh", background: C.ivory,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <img src={IMGS.pomegranate} alt="" style={{ width: 64, opacity: 0.5, animation: "spin 1.8s linear infinite" }} />
+    </div>
+  );
+
   return (
-    <>
+    <div style={{ animation: "fadeIn 0.4s ease" }}>
       {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("name")} />}
       {screen === "name"    && (
         <NameScreen
@@ -662,7 +680,7 @@ export default function WeddingCamera() {
       )}
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </>
+    </div>
   );
 }
 
