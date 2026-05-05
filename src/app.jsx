@@ -341,7 +341,7 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        video: { facingMode: { ideal: mode }, width: { ideal: 4096 }, height: { ideal: 2160 } }
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
@@ -366,19 +366,33 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
     setFlipping(false);
   };
 
+  const fileInputRef = useRef(null);
+
+  const pickFromGallery = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      onCapture(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const capture = () => {
     if (!videoRef.current || !canvasRef.current || !!error) return;
     const v = videoRef.current;
     const c = canvasRef.current;
     let w = v.videoWidth, h = v.videoHeight;
-    if (w > 1600) { h = Math.round(h * 1600 / w); w = 1600; }
+    if (w > 3840) { h = Math.round(h * 3840 / w); w = 3840; }
     c.width = w; c.height = h;
     const ctx = c.getContext("2d");
     if (facing === "user") { ctx.translate(w, 0); ctx.scale(-1, 1); }
     ctx.drawImage(v, 0, 0, w, h);
     setFlash(true);
     setTimeout(() => setFlash(false), 270);
-    const dataUrl = c.toDataURL("image/jpeg", 0.82);
+    const dataUrl = c.toDataURL("image/jpeg", 0.92);
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     onCapture(dataUrl);
   };
@@ -461,11 +475,19 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
+        gap: 40,
         paddingBottom: `max(28px, env(safe-area-inset-bottom))`,
         paddingTop: 20,
         background: "linear-gradient(to top, #000d, transparent)",
         zIndex: 5
       }}>
+        <button onClick={() => fileInputRef.current?.click()} style={{
+          width: 52, height: 52, borderRadius: 14,
+          background: "rgba(255,255,255,0.18)", backdropFilter: "blur(6px)",
+          border: "2px solid rgba(255,255,255,0.3)", color: "white",
+          fontSize: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        }}>🖼</button>
+
         <button onClick={capture} disabled={!!error} style={{
           width: 82, height: 82, borderRadius: "50%", background: "white",
           border: "5px solid rgba(255,255,255,0.35)",
@@ -473,6 +495,16 @@ function CameraScreen({ onCapture, onBack, hasSession }) {
           cursor: error ? "not-allowed" : "pointer",
           opacity: error ? 0.4 : 1,
         }} />
+
+        <div style={{ width: 52 }} />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={pickFromGallery}
+          style={{ display: "none" }}
+        />
       </div>
     </div>
   );
